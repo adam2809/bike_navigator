@@ -361,17 +361,28 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     }
     case ESP_GATTS_WRITE_EVT: {
         ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d", param->write.conn_id, param->write.trans_id, param->write.handle);
-        if (!param->write.is_prep){
-            ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
-            esp_log_buffer_hex(GATTS_TAG, param->write.value, param->write.len);
-            if (gl_profile_tab[PROFILE_A_APP_ID].char_handle == param->write.handle && param->write.len == 3){
-                ESP_LOGI(GATTS_TAG, "Setting new value");
-                esp_ble_gatts_set_attr_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,sizeof(char2_str),char2_str);
-                esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_handle,
-                                        sizeof(char2_str), char2_str, false);
+        if (param->write.is_prep){
+            ESP_LOGW(GATTS_TAG,"Prep writes are not supported!!!");
+            if (param->write.need_rsp){
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_WRITE_NOT_PERMIT, NULL);
             }
+            return;
         }
-        example_write_event_env(gatts_if, &a_prepare_write_env, param);
+
+        ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :", param->write.len);
+        esp_log_buffer_hex(GATTS_TAG, param->write.value, param->write.len);
+        if (gl_profile_tab[PROFILE_A_APP_ID].char_handle == param->write.handle && param->write.len == 3){
+            ESP_LOGI(GATTS_TAG, "Setting new value");
+            esp_ble_gatts_set_attr_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,sizeof(char2_str),char2_str);
+            esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                                        sizeof(char2_str), char2_str, false);
+        }
+
+        if (param->write.need_rsp){
+            esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
+        }
+
+        // example_write_event_env(gatts_if, &a_prepare_write_env, param);
         break;
     }
     case ESP_GATTS_EXEC_WRITE_EVT:
