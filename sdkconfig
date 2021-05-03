@@ -121,12 +121,6 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# Example 'GATT SERVER' Config
-#
-# CONFIG_SET_RAW_ADV_DATA is not set
-# end of Example 'GATT SERVER' Config
-
-#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y
