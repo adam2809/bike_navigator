@@ -341,12 +341,19 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %d, handle %d\n", param->read.conn_id, param->read.trans_id, param->read.handle);
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
+
+        uint16_t length = 0;
+        const uint8_t *prf_char;
+        esp_err_t get_attr_ret = esp_ble_gatts_get_attr_value(param->read.handle,  &length, &prf_char);
+        if (get_attr_ret == ESP_FAIL){
+            ESP_LOGE(GATTS_TAG, "Could not get attribute value (Handle %x)",param->read.handle);
+        }
+
         rsp.attr_value.handle = param->read.handle;
-        rsp.attr_value.len = 4;
-        rsp.attr_value.value[0] = 0xde;
-        rsp.attr_value.value[1] = 0xed;
-        rsp.attr_value.value[2] = 0xbe;
-        rsp.attr_value.value[3] = 0xef;
+        rsp.attr_value.len = length;
+        for(int i=0;i<length;i++){
+            rsp.attr_value.value[i] = prf_char[i];
+        }
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
                                     ESP_GATT_OK, &rsp);
         break;
