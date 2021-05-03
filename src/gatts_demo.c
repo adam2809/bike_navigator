@@ -33,6 +33,8 @@
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
 
+#include "driver/gpio.h"
+
 #include "sdkconfig.h"
 
 #define GATTS_TAG "GATTS_DEMO"
@@ -62,10 +64,11 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 typedef enum {
     TURN_RIGHT,
     STRAIGHT,
-    TURN_LEFT   
+    TURN_LEFT,
+    NO_DIR
 } direction; 
 
-uint8_t char1_str[] = { STRAIGHT };
+uint8_t char1_str[] = { NO_DIR };
 static esp_gatt_char_prop_t a_property = 0;
 static esp_gatt_char_prop_t b_property = 0;
 
@@ -667,6 +670,49 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         }
     } while (0);
 }
+void setup_led_pins(){
+    gpio_config_t io_conf;         
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL<<GPIO_NUM_23)|(1ULL<<GPIO_NUM_18)|(1ULL<<GPIO_NUM_16);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+}
+
+static void dir_led_disp_task(void *pvParameter){
+    while(1){
+        uint16_t length = 1;
+        const uint8_t *prf_char;
+        esp_err_t get_attr_ret = esp_ble_gatts_get_attr_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,  &length, &prf_char);
+        if (get_attr_ret == ESP_FAIL){
+            ESP_LOGE(GATTS_TAG, "Could not get attribute value (Handle %x)",gl_profile_tab[PROFILE_A_APP_ID].char_handle);
+            continue;
+        }
+        if(length != 1){
+            ESP_LOGE(GATTS_TAG, "Wrong attribute value length");
+            continue;
+        }
+        
+        gpio_set_level(GPIO_NUM_23,0);
+        gpio_set_level(GPIO_NUM_18,0);
+        gpio_set_level(GPIO_NUM_16,0);
+
+        if(prf_char[0] == TURN_RIGHT){
+            gpio_set_level(GPIO_NUM_23,1);
+        }else if(prf_char[0] == STRAIGHT){
+            gpio_set_level(GPIO_NUM_18,1);
+        }else if(prf_char[0] == TURN_LEFT){
+            gpio_set_level(GPIO_NUM_16,1);
+        }else if(prf_char[0] == NO_DIR){
+
+        }else{
+            ESP_LOGE(GATTS_TAG,"Invalid direction in characteristic value attribute");
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
 
 void app_main(void)
 {
@@ -730,5 +776,7 @@ void app_main(void)
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
 
+    setup_led_pins();
+    xTaskCreate(&dir_led_disp_task, "display_dir_on_led", 2048, NULL, 5, NULL);
     return;
 }
